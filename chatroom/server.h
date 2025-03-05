@@ -1,0 +1,1 @@
+#define MAXCLIENTS 10
