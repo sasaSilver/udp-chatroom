@@ -25,9 +25,10 @@ A simple command line chat application that allows multiple clients to chat with
 ## Usage
 1. Build the project and start the server and two clients on `127.0.0.1:3000` with ```./launch.bat``` for windows or ```./launch.sh``` for UNIX.
 
-2. OR start them separately:
+2. OR build and start them separately:
    ```bash
    cd chatroom
+   make
    ./client <server_ip> <port>
    ./server <port>
    ```
