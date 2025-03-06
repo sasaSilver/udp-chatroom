@@ -37,11 +37,10 @@ sockaddr_t setup_server(char* ip, int port) {
     return servaddr;
 }
 
-int send_message(sockaddr_t *to, char* message) {
+void send_message(sockaddr_t *to, char* message) {
     int status = sendto(sockfd, message, strlen(message), 0, (struct sockaddr*) to, sizeof(sockaddr_t));
     if (status < 0) {
         perror("Error: Failed to send message\n");
         exit(EXIT_FAILURE);
     }
-    return status;
 }

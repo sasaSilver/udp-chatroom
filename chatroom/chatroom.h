@@ -38,6 +38,6 @@ typedef struct sockaddr_in sockaddr_t;
 void cleanup_socket(int sockfd);
 int setup_socket(int domain, int type, int protocol);
 sockaddr_t setup_server(char* ip, int port);
-int send_message(sockaddr_t *toaddr, char* message);
+void send_message(sockaddr_t *to, char* message);
 
 #endif

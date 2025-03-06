@@ -2,6 +2,12 @@
 
 int sockfd;
 
+typedef struct client {
+    char id;
+    int logged_in;
+} client_t;
+client_t client; // current client
+
 void run_client(sockaddr_t servaddr);
 
 int main(int argc, char* argv[]) {
@@ -26,11 +32,15 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
+void send_logged_in(sockaddr_t *to, char *message) {
+    if (client.logged_in)
+        send_message(to, message);
+}
+
 int receive_message(char *message) {
     int status = recv(sockfd, message, MAXMSG, 0);
     if (status < 0) {
         perror("Error: Failed to receive message\n");
-        printf("%d", WSAGetLastError());
         exit(EXIT_FAILURE);
     }
     message[status] = '\0';
@@ -53,6 +63,7 @@ char register_client(sockaddr_t servaddr) {
     
     char register_request[MAXMSG];
     sprintf(register_request, "r%s", name);
+    // no need to be logged in to register
     send_message(&servaddr, register_request);
     
     char client_id_reply[MAXMSG];
@@ -61,7 +72,7 @@ char register_client(sockaddr_t servaddr) {
         
     int client_id = atoi(client_id_reply + 1);
     if (client_id == -1) {
-        perror("Error: Chatroom is full. Unable to connect\n");
+        perror("[ERROR]: Chatroom is full. Unable to connect\n");
         exit(EXIT_FAILURE);
     }
     return client_id + '0';
@@ -70,43 +81,40 @@ char register_client(sockaddr_t servaddr) {
 void leave_chatroom(sockaddr_t servaddr, char client_id) {
     char quit_request[MAXMSG];
     sprintf(quit_request, "%c%c%c", client_id, CMD_PREFIX, CMD_LEAVE);
-    send_message(&servaddr, quit_request);
+    send_logged_in(&servaddr, quit_request);
 }
 
 void get_all_participants(sockaddr_t servaddr, char client_id) {
     char all_participants_request[MAXMSG];
     sprintf(all_participants_request, "%c%c%c", client_id, CMD_PREFIX, CMD_ALL);
-    send_message(&servaddr, all_participants_request);
+    send_logged_in(&servaddr, all_participants_request);
 }
 
 void run_client(sockaddr_t servaddr) {
     pthread_t receive_thread;
     char buffer[MAXMSG - 2];
-    char client_id;
-    int logged_in = 0;
     while (1) {
         fgets(buffer, MAXMSG - 2, stdin);
         buffer[strcspn(buffer, "\n")] = '\0';
         if (buffer[0] == CMD_PREFIX) {
             if (buffer[1] == CMD_LEAVE) {
-                leave_chatroom(servaddr, client_id);
-                logged_in = 0;
+                leave_chatroom(servaddr, client.id);
+                client.logged_in = 0;
                 pthread_cancel(receive_thread);
             }
             else if (buffer[1] == CMD_ALL)
-                get_all_participants(servaddr, client_id);
+                get_all_participants(servaddr, client.id);
             else if (buffer[1] == CMD_REG) {
-                client_id = register_client(servaddr);
-                logged_in = 1;
+                client.id = register_client(servaddr);
+                client.logged_in = 1;
                 pthread_create(&receive_thread, NULL, receive_routine, NULL);
             }
             else if (buffer[1] == CMD_ID)
-                printf("%c\n", client_id);
+                printf("%c\n", client.id);
             continue;
         }
         char message[MAXMSG];
-        sprintf(message, "%c%s", client_id, buffer);
-        if (logged_in)
-            send_message(&servaddr, message);
+        sprintf(message, "%c%s", client.id, buffer);
+        send_logged_in(&servaddr, message);
     }
 }

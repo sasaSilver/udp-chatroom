@@ -1,6 +1,5 @@
 #include "chatroom.h"
-
-#define MAXCLIENTS 10
+#include "server.h"
 
 typedef struct {
     sockaddr_t addr;
@@ -25,14 +24,15 @@ int main(int argc, char* argv[]) {
     }
 #endif
     if (argc < 2) {
-        perror("Error: A port number in program arguments is needed\n");
+        fprintf(stderr, "[ERROR]: A port number in program arguments is needed\n");
         exit(EXIT_FAILURE);
     } else if (argc > 2) {
-        perror("Error: Too many arguments\n");
+        fprintf(stderr, "[ERROR]: Too many arguments\n");
         exit(EXIT_FAILURE);
     }
     sockfd = setup_socket(AF_INET, SOCK_DGRAM, 0);
 #ifdef _WIN32
+    // windows fix for recvfrom
     BOOL bNewBehavior = FALSE;
     DWORD dwBytesReturned = 0;
     WSAIoctl(sockfd, SIO_UDP_CONNRESET, &bNewBehavior, sizeof bNewBehavior, NULL, 0, &dwBytesReturned, NULL, NULL);
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
     // null (to accept connections on all networks), port
     sockaddr_t servaddr = setup_server(NULL, atoi(argv[1]));
     bind_socket(servaddr);
-    printf("Server listening on port %d...\n", atoi(argv[1]));
+    printf("[INFO] Server listening on port %d...\n", atoi(argv[1]));
     run_server();
     cleanup_socket(sockfd);
     return 0;
@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
 
 void bind_socket(sockaddr_t servaddr) {
     if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-        perror("Error: Failed to bind socket\n");
+        perror("[ERROR]: Failed to bind socket\n");
         exit(EXIT_FAILURE);
     }
 }
@@ -61,15 +61,14 @@ void broadcast_except(char *message, int except_id) {
             continue;
         send_message(&clients[i]->addr, message);
     }
-    printf("broad: %s\n", message);
+    printf("[BROADCAST]: %s\n", message);
 }
 
 int receive_message(sockaddr_t *from, char *message) {
     socklen_t fromlen = sizeof(struct sockaddr_storage);
     int status = recvfrom(sockfd, message, MAXMSG, 0, (struct sockaddr*) from, &fromlen);
     if (status < 0) {
-        perror("Error: Failed to receive message\n");
-        printf("%d", WSAGetLastError());
+        perror("[ERROR]: Failed to receive message\n");
         exit(EXIT_FAILURE);
     }
     message[status] = '\0';
@@ -189,18 +188,16 @@ void run_server() {
     while (1) {
         int nreceived = receive_message(&clientaddr, message);
         message[nreceived] = '\0';
-        printf("got: %s\n", message);
+        printf("[RECEIVED]: %s\n", message);
         // non-registered clients send messages without their id
         if (message[0] == CMD_REG) {
             add_to_chatroom(&clientaddr, message);
         }
         // client sends a message or a command
-        else if (verify_client(message)) {
-            client_t* client = clients[message[0] - '0'];
-            if (client == NULL) {
-                fprintf(stderr, "Error: Invalid client ID <%c> received\n", message[0]);
+        else {
+            client_t* client = verify_client(message);
+            if (client == NULL)
                 continue;
-            }
             if (message[1] == CMD_PREFIX) {
                 if (message[2] == CMD_ALL)
                     show_all_participants(&clientaddr);
