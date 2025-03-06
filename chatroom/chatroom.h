@@ -39,5 +39,6 @@ void cleanup_socket(int sockfd);
 int setup_socket(int domain, int type, int protocol);
 sockaddr_t setup_server(char* ip, int port);
 void send_message(sockaddr_t *to, char* message);
+void throw(const char *format, ...);
 
 #endif

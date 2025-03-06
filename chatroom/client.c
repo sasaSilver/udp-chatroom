@@ -13,18 +13,14 @@ void run_client(sockaddr_t servaddr);
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
     WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        printf("WSAStartup failed: %d\n", WSAGetLastError());
-        return 1;
-    }
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+        throw("[ERROR] WSAStartup failed: %d\n", WSAGetLastError());
 #endif
-    if (argc < 2) {
-        perror("Error: Server IP and port in program arguments are needed\n");
-        exit(EXIT_FAILURE);
-    } else if (argc > 3) {
-        perror("Error: Too many arguments\n");
-        exit(EXIT_FAILURE);
-    }
+    if (argc < 2) 
+        throw("[ERROR] Server IP and port in program arguments are needed\n");
+    else if (argc > 3) 
+        throw("[ERROR] Too many arguments\n");
+    
     sockfd = setup_socket(AF_INET, SOCK_DGRAM, 0);
     sockaddr_t servaddr = setup_server(argv[1], atoi(argv[2])); //ip, port
     run_client(servaddr);
@@ -39,10 +35,8 @@ void send_logged_in(sockaddr_t *to, char *message) {
 
 int receive_message(char *message) {
     int status = recv(sockfd, message, MAXMSG, 0);
-    if (status < 0) {
-        perror("Error: Failed to receive message\n");
-        exit(EXIT_FAILURE);
-    }
+    if (status < 0)
+        throw("[ERROR]: Failed to receive message\n");
     message[status] = '\0';
     return status;
 }
@@ -71,10 +65,8 @@ char register_client(sockaddr_t servaddr) {
     client_id_reply[nreceived] = '\0';
         
     int client_id = atoi(client_id_reply + 1);
-    if (client_id == -1) {
-        perror("[ERROR]: Chatroom is full. Unable to connect\n");
-        exit(EXIT_FAILURE);
-    }
+    if (client_id == -1)
+        throw("[ERROR]: Chatroom is full. Unable to connect\n");
     return client_id + '0';
 }
 

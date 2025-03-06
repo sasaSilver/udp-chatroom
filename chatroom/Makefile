@@ -3,10 +3,10 @@ CFLAGS = -Wall
 
 ifeq ($(OS),Windows_NT)
     LIBS = -lws2_32 -lpthread
-	CLEAN = del client.exe server.exe
+	CLEAN = del client.exe server.exe client server
 else
     LIBS = -lpthread
-	CLEAN = rm -f client server
+	CLEAN = rm -f client server client.exe server.exe
 endif
 
 all: client server

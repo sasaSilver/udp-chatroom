@@ -1,5 +1,6 @@
 #include "chatroom.h"
-#include "server.h"
+
+#define MAXCLIENTS 10
 
 typedef struct {
     sockaddr_t addr;
@@ -18,18 +19,13 @@ void run_server();
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
     WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        printf("WSAStartup failed: %d\n", WSAGetLastError());
-        exit(EXIT_FAILURE);
-    }
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+        throw("WSAStartup failed: %d\n", WSAGetLastError());
 #endif
-    if (argc < 2) {
-        fprintf(stderr, "[ERROR]: A port number in program arguments is needed\n");
-        exit(EXIT_FAILURE);
-    } else if (argc > 2) {
-        fprintf(stderr, "[ERROR]: Too many arguments\n");
-        exit(EXIT_FAILURE);
-    }
+    if (argc < 2)
+        throw("[ERROR]: A port number in program arguments is needed\n");
+    else if (argc > 2) 
+        throw("[ERROR]: Too many arguments\n");
     sockfd = setup_socket(AF_INET, SOCK_DGRAM, 0);
 #ifdef _WIN32
     // windows fix for recvfrom
@@ -47,10 +43,8 @@ int main(int argc, char* argv[]) {
 }
 
 void bind_socket(sockaddr_t servaddr) {
-    if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-        perror("[ERROR]: Failed to bind socket\n");
-        exit(EXIT_FAILURE);
-    }
+    if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+        throw("[ERROR]: Failed to bind socket\n");
 }
 
 // send a message to all clients whose id is not equal to except_id
@@ -67,10 +61,8 @@ void broadcast_except(char *message, int except_id) {
 int receive_message(sockaddr_t *from, char *message) {
     socklen_t fromlen = sizeof(struct sockaddr_storage);
     int status = recvfrom(sockfd, message, MAXMSG, 0, (struct sockaddr*) from, &fromlen);
-    if (status < 0) {
-        perror("[ERROR]: Failed to receive message\n");
-        exit(EXIT_FAILURE);
-    }
+    if (status < 0)
+        throw("[ERROR]: Failed to receive message\n");
     message[status] = '\0';
     return status;
 }
@@ -95,7 +87,7 @@ void *handle_client(void* arg) {
 }
 
 void show_all_participants(sockaddr_t *clientaddr) {
-    char names_message[MAXMSG] = "Server: All chat participants: ";
+    char names_message[MAXMSG] = "[SERVER]: All chat participants: ";
     for (int i = 0; i < MAXCLIENTS; i++) {
         if (clients[i] == NULL)
         continue;
@@ -128,34 +120,36 @@ client_t *create_client(sockaddr_t *clientaddr, char *name) {
 void add_to_chatroom(sockaddr_t *clientaddr, char *name) {
     client_t *client = create_client(clientaddr, name);
     if (client == NULL) {
-        send_message(clientaddr, "Server: The chat room is full!\n");
+        send_message(clientaddr, "[SERVER]: The chat room is full!\n");
+        printf("[INFO] Client %s tried to join the chat room, but it's full\n", name);
         return;
     }
-    
     // reply with client's id: "i<client_id>"
     char client_id_response[MAXMSG];
     sprintf(client_id_response, "%c%c", CMD_ID, client->id + '0');
     send_message(clientaddr, client_id_response);
     
     // notify that client joined
-    char welcome_msg[NAMELEN + 35];
-    sprintf(welcome_msg, "Server: %s has joined the chat room\n", client->name);
+    char welcome_msg[NAMELEN + 36];
+    sprintf(welcome_msg, "[SERVER]: %s has joined the chat room\n", client->name);
     broadcast_except(welcome_msg, -1);
+    
+    printf("[INFO] %s joined\n", client->name);
 }
 
 void remove_client(client_t* client) {
-    char leave_msg[NAMELEN + 33];
-    sprintf(leave_msg, "Server: %s has left the chat room\n", client->name);
+    char leave_msg[NAMELEN + 35];
+    sprintf(leave_msg, "[SERVER]: %s has left the chat room\n", client->name);
     clients[client->id] = NULL;
     free(client);
     broadcast_except(leave_msg, -1);
 }
 
 void *server_send(void* arg) {
-    char input_buffer[MAXMSG - 9];
+    char input_buffer[MAXMSG - 10];
     char broadcasted_message[MAXMSG];
     while (1) {
-        fgets(input_buffer, MAXMSG - 9, stdin);
+        fgets(input_buffer, MAXMSG - 10, stdin);
         if (input_buffer[0] == CMD_PREFIX) {
             if (input_buffer[1] == CMD_ALL) {
                 for (int i = 0; i < MAXCLIENTS; i++) {
@@ -163,13 +157,13 @@ void *server_send(void* arg) {
                     printf("%d %s\n", clients[i]->id, clients[i]->name);
                 }
             }
-            if (1) {
+            else if (1) {
                 // other server commands
             }
             continue;
         }
         // do not add '\n' at end of format as a '\n' remains after fgets
-        sprintf(broadcasted_message, "Server: %s", input_buffer);
+        sprintf(broadcasted_message, "[SERVER]: %s", input_buffer);
         broadcast_except(broadcasted_message, -1);
     }
 }
@@ -181,10 +175,12 @@ client_t *verify_client(char *message) {
 }
 
 void run_server() {
+    pthread_t broadcast_thread;
+    pthread_create(&broadcast_thread, NULL, server_send, NULL); // thread to send server messages
+    
     char message[MAXMSG];
     sockaddr_t clientaddr;
-    pthread_t broadcast_thread;
-    pthread_create(&broadcast_thread, NULL, server_send, NULL);
+    client_t *curr_client;
     while (1) {
         int nreceived = receive_message(&clientaddr, message);
         message[nreceived] = '\0';
@@ -193,21 +189,18 @@ void run_server() {
         if (message[0] == CMD_REG) {
             add_to_chatroom(&clientaddr, message);
         }
-        // client sends a message or a command
-        else {
-            client_t* client = verify_client(message);
-            if (client == NULL)
-                continue;
+        // verify a client to send their messages or handle commands
+        else if ((curr_client = verify_client(message))) {
             if (message[1] == CMD_PREFIX) {
                 if (message[2] == CMD_ALL)
                     show_all_participants(&clientaddr);
                 else if (message[2] == CMD_LEAVE)
-                    remove_client(client);
+                    remove_client(curr_client);
                 continue;
             }
             char broadcasted_msg[NAMELEN + MAXMSG + 2];
-            sprintf(broadcasted_msg, "%s: %s\n", client->name, message + 1);
-            broadcast_except(broadcasted_msg, client->id);
+            sprintf(broadcasted_msg, "%s: %s\n", curr_client->name, message + 1);
+            broadcast_except(broadcasted_msg, curr_client->id);
         }
     }
 }

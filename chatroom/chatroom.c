@@ -1,13 +1,19 @@
-#include "chatroom.h"
+#include <stdarg.h>
 
 #ifdef _WIN32
+
 #include <winsock2.h>
+
 #else
+
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+
 #endif
+
+#include "chatroom.h"
 
 void cleanup_socket(int sockfd) {
 #ifdef _WIN32
@@ -43,4 +49,14 @@ void send_message(sockaddr_t *to, char* message) {
         perror("Error: Failed to send message\n");
         exit(EXIT_FAILURE);
     }
+}
+
+void throw(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    
+    vfprintf(stderr, format, args);
+    
+    va_end(args);
+    exit(EXIT_FAILURE);
 }
