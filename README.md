@@ -17,23 +17,23 @@ A simple command line chat application that allows multiple clients to chat with
    cd udp-chatroom
    ```
 
-2. Compile the application using the provided Makefile:
+2. Optionally, compile the application using the provided Makefile:
    ```bash
-   make
+   make -C chatroom
    ```
 
 ## Usage
-1. Start the server and two clients on `127.0.0.1:3000` with ```./launch.bat``` for windows or ```./launch.sh``` for UNIX.
+1. Build the project and start the server and two clients on `127.0.0.1:3000` with ```./launch.bat``` for windows or ```./launch.sh``` for UNIX.
 
 2. OR start them separately:
    ```bash
+   cd chatroom
    ./client <server_ip> <port>
-   ```
-   
-   ```bash
    ./server <port>
    ```
 
 3. Follow the prompts to register and type your messages directly in the terminal.
 
-4. Optionally, send messages as server.
+4. As client, type `!h` for help.
+
+5. Optionally, send messages as server.
