@@ -9,7 +9,6 @@ void run_client(sockaddr_t servaddr);
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
     WSADATA wsaData;
-    // Initialize Winsock
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         printf("WSAStartup failed: %d\n", WSAGetLastError());
         return 1;
@@ -81,7 +80,7 @@ void run_client(sockaddr_t servaddr) {
         buffer[strcspn(buffer, "\n")] = '\0';
         if (buffer[0] == CMD_PREFIX) {
             if (buffer[1] == CMD_LEAVE) {
-                leave_chatroom(servaddr, &client_id);
+                leave_chatroom(servaddr, client_id);
                 logged_in = 0;
                 pthread_cancel(receive_thread);
             }
