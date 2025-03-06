@@ -1,16 +1,13 @@
 #include <stdarg.h>
+#include <signal.h>
 
 #ifdef _WIN32
-
 #include <winsock2.h>
-
 #else
-
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
 #endif
 
 #include "chatroom.h"
@@ -59,4 +56,15 @@ void throw(const char *format, ...) {
     
     va_end(args);
     exit(EXIT_FAILURE);
+}
+
+void help() {
+    printf("[HELP]:\n");
+    printf("!r - Register in the chatroom.\n");
+    printf("!q - Leave the chatroom.\n");
+    printf("!i - Show your user ID.\n");
+    printf("!a - Show all users in the chatroom\n");
+    printf("     Also available as a server command that lists");
+    printf("     all connected users and their ids\n");
+    printf("!h - Display this message.\n");
 }

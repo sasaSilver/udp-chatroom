@@ -8,7 +8,10 @@ typedef struct client {
 } client_t;
 client_t client; // current client
 
-void run_client(sockaddr_t servaddr);
+sockaddr_t servaddr;
+pthread_t receive_thread;
+
+void run_client();
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
@@ -22,15 +25,19 @@ int main(int argc, char* argv[]) {
         throw("[ERROR] Too many arguments\n");
     
     sockfd = setup_socket(AF_INET, SOCK_DGRAM, 0);
-    sockaddr_t servaddr = setup_server(argv[1], atoi(argv[2])); //ip, port
-    run_client(servaddr);
-    cleanup_socket(sockfd);
+    servaddr = setup_server(argv[1], atoi(argv[2])); //ip, port
+    
+    signal(SIGINT, &on_app_close);
+    signal(SIGBREAK, &on_app_close);
+    signal(SIGTERM, &on_app_close);
+    
+    run_client();
     return 0;
 }
 
-void send_logged_in(sockaddr_t *to, char *message) {
+void send_logged_in(char *message) {
     if (client.logged_in)
-        send_message(to, message);
+        send_message(&servaddr, message);
 }
 
 int receive_message(char *message) {
@@ -49,7 +56,7 @@ void *receive_routine(void* arg) {
     }
 }
 
-char register_client(sockaddr_t servaddr) {
+char register_client() {
     printf("Your name: ");
     char name[NAMELEN];
     fgets(name, NAMELEN, stdin);
@@ -70,43 +77,56 @@ char register_client(sockaddr_t servaddr) {
     return client_id + '0';
 }
 
-void leave_chatroom(sockaddr_t servaddr, char client_id) {
+void leave_chatroom(char client_id) {
     char quit_request[MAXMSG];
     sprintf(quit_request, "%c%c%c", client_id, CMD_PREFIX, CMD_LEAVE);
-    send_logged_in(&servaddr, quit_request);
+    send_logged_in(quit_request);
 }
 
-void get_all_participants(sockaddr_t servaddr, char client_id) {
+void get_all_participants(char client_id) {
     char all_participants_request[MAXMSG];
     sprintf(all_participants_request, "%c%c%c", client_id, CMD_PREFIX, CMD_ALL);
-    send_logged_in(&servaddr, all_participants_request);
+    send_logged_in(all_participants_request);
 }
 
-void run_client(sockaddr_t servaddr) {
-    pthread_t receive_thread;
+void run_client() {
     char buffer[MAXMSG - 2];
+    
+    printf("Register with !r. See !h for other commands.\n");
+    
     while (1) {
         fgets(buffer, MAXMSG - 2, stdin);
         buffer[strcspn(buffer, "\n")] = '\0';
         if (buffer[0] == CMD_PREFIX) {
-            if (buffer[1] == CMD_LEAVE) {
-                leave_chatroom(servaddr, client.id);
+            if (buffer[1] == CMD_REG) {
+                client.id = register_client();
+                client.logged_in = 1;
+                // start receiving messages after registering
+                pthread_create(&receive_thread, NULL, receive_routine, NULL);
+            }
+            else if (buffer[1] == CMD_LEAVE) {
+                leave_chatroom(client.id);
                 client.logged_in = 0;
+                // stop receiving messages after leaving
                 pthread_cancel(receive_thread);
             }
             else if (buffer[1] == CMD_ALL)
-                get_all_participants(servaddr, client.id);
-            else if (buffer[1] == CMD_REG) {
-                client.id = register_client(servaddr);
-                client.logged_in = 1;
-                pthread_create(&receive_thread, NULL, receive_routine, NULL);
-            }
+                get_all_participants(client.id);
             else if (buffer[1] == CMD_ID)
                 printf("%c\n", client.id);
+            else if (buffer[1] == CMD_HELP)
+                help();
             continue;
         }
         char message[MAXMSG];
         sprintf(message, "%c%s", client.id, buffer);
-        send_logged_in(&servaddr, message);
+        send_logged_in(message);
     }
+}
+
+void on_app_close(int signum) {
+    pthread_cancel(receive_thread);
+    cleanup_socket(sockfd);
+    if (client.logged_in)
+        leave_chatroom(client.id);
 }

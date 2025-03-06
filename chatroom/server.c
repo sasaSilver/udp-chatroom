@@ -9,9 +9,8 @@ typedef struct {
 } client_t;
 
 client_t *clients[MAXCLIENTS] = {NULL};
-
-// server's socket file descriptor
 int sockfd;
+pthread_t broadcast_thread;
 
 void bind_socket(sockaddr_t servaddr);
 void run_server();
@@ -37,9 +36,12 @@ int main(int argc, char* argv[]) {
     sockaddr_t servaddr = setup_server(NULL, atoi(argv[1]));
     bind_socket(servaddr);
     printf("[INFO] Server listening on port %d...\n", atoi(argv[1]));
+    
+    signal(SIGINT, &on_app_close);
+    signal(SIGBREAK, &on_app_close);
+    signal(SIGTERM, &on_app_close);
+    
     run_server();
-    cleanup_socket(sockfd);
-    return 0;
 }
 
 void bind_socket(sockaddr_t servaddr) {
@@ -175,7 +177,6 @@ client_t *verify_client(char *message) {
 }
 
 void run_server() {
-    pthread_t broadcast_thread;
     pthread_create(&broadcast_thread, NULL, server_send, NULL); // thread to send server messages
     
     char message[MAXMSG];
@@ -203,4 +204,9 @@ void run_server() {
             broadcast_except(broadcasted_msg, curr_client->id);
         }
     }
+}
+
+void on_app_close(int signum) {
+    pthread_cancel(broadcast_thread);
+    cleanup_socket(sockfd);
 }
