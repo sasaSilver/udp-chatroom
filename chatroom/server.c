@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 }
 
 void bind_server(sockaddr_t servaddr) {
-    if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) == SOCKET_ERROR) {
+    if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
         perror("Error: Failed to bind socket\n");
         exit(EXIT_FAILURE);
     }

@@ -47,7 +47,7 @@ sockaddr_t setup_server(char* ip, int port) {
 
 int send_message(sockaddr_t *toaddr, char* message) {
     int nreceived = sendto(sockfd, message, strlen(message), 0, (struct sockaddr*) toaddr, sizeof(toaddr));
-    if (nreceived == SOCKET_ERROR) {
+    if (nreceived < 0) {
         perror("Error: Failed to send message\n");
         exit(EXIT_FAILURE);
     }
@@ -57,7 +57,7 @@ int send_message(sockaddr_t *toaddr, char* message) {
 int receive_message(sockaddr_t *from, char *message) {
     static socklen_t server_struct_len = sizeof(struct sockaddr_in);
     int nreceived = recvfrom(sockfd, message, MSGBUFFER, 0, (struct sockaddr*) from, &server_struct_len);
-    if (nreceived == SOCKET_ERROR) {
+    if (nreceived < 0) {
         perror("Error: Failed to receive message\n");
         exit(EXIT_FAILURE);
     }
