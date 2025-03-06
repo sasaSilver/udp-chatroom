@@ -76,6 +76,7 @@ void broadcast_except(char *message, int except_id) {
         continue;
         send_message(&clients[i]->addr, message);
     }
+    printf("broad: %s\n", message);
 }
 
 void show_all_participants(sockaddr_t *clientaddr) {
@@ -172,7 +173,7 @@ void run_server(sockaddr_t servaddr) {
     while (1) {
         int nreceived = receive_message(&clientaddr, message);
         message[nreceived] = '\0';
-        
+        printf("got: %s\n", message);
         // non-registered clients send messages without their id
         if (message[0] == CMD_REG) {
             add_to_chatroom(&clientaddr, message);

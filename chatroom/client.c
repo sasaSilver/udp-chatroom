@@ -59,10 +59,11 @@ char register_client(sockaddr_t servaddr) {
     return client_id + '0';
 }
 
-void leave_chatroom(sockaddr_t servaddr, char client_id) {
+void leave_chatroom(sockaddr_t servaddr, char *client_id) {
     char quit_request[4];
-    sprintf(quit_request, "%c%c%c", client_id, CMD_PREFIX, CMD_LEAVE);
+    sprintf(quit_request, "%c%c%c", *client_id, CMD_PREFIX, CMD_LEAVE);
     send_message(&servaddr, quit_request);
+    *client_id = 'n';
 }
 
 void get_all_participants(sockaddr_t servaddr, char client_id) {
@@ -74,13 +75,13 @@ void get_all_participants(sockaddr_t servaddr, char client_id) {
 void run_client(sockaddr_t servaddr) {
     pthread_t receive_thread;
     char buffer[MSGBUFFER - 2];
-    char client_id;
+    char client_id = 'n';
     while (1) {
         fgets(buffer, MSGBUFFER - 2, stdin);
         buffer[strcspn(buffer, "\n")] = '\0';
         if (buffer[0] == CMD_PREFIX) {
             if (buffer[1] == CMD_LEAVE) {
-                leave_chatroom(servaddr, client_id);
+                leave_chatroom(servaddr, &client_id);
                 pthread_cancel(receive_thread);
             }
             else if (buffer[1] == CMD_ALL)
@@ -95,6 +96,7 @@ void run_client(sockaddr_t servaddr) {
         }
         char message[MSGBUFFER];
         sprintf(message, "%c%s", client_id, buffer);
-        send_message(&servaddr, message);
+        if (client_id != 'n')
+            send_message(&servaddr, message);
     }
 }
