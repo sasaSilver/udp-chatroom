@@ -1,5 +1,5 @@
 #include "chatroom.h"
-#define SERVER
+
 #define MAXCLIENTS 10
 
 typedef struct {
@@ -13,8 +13,8 @@ client_t *clients[MAXCLIENTS] = {NULL};
 // server's socket file descriptor
 int sockfd;
 
-void bind_server(sockaddr_t servaddr);
-void run_server(sockaddr_t servaddr);
+void bind_socket(sockaddr_t servaddr);
+void run_server();
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
@@ -32,31 +32,59 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
     sockfd = setup_socket(AF_INET, SOCK_DGRAM, 0);
+#ifdef _WIN32
+    BOOL bNewBehavior = FALSE;
+    DWORD dwBytesReturned = 0;
+    WSAIoctl(sockfd, SIO_UDP_CONNRESET, &bNewBehavior, sizeof bNewBehavior, NULL, 0, &dwBytesReturned, NULL, NULL);
+#endif
     // null (to accept connections on all networks), port
     sockaddr_t servaddr = setup_server(NULL, atoi(argv[1]));
-    bind_server(servaddr);
+    bind_socket(servaddr);
     printf("Server listening on port %d...\n", atoi(argv[1]));
-    run_server(servaddr);
+    run_server();
     cleanup_socket(sockfd);
     return 0;
 }
 
-void bind_server(sockaddr_t servaddr) {
+void bind_socket(sockaddr_t servaddr) {
     if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
         perror("Error: Failed to bind socket\n");
         exit(EXIT_FAILURE);
     }
 }
 
+// send a message to all clients whose id is not equal to except_id
+// pass -1 for except_id to send to everyone
+void broadcast_except(char *message, int except_id) {
+    for (int i = 0; i < MAXCLIENTS - 1; i++) {
+        if (clients[i] == NULL || i == except_id)
+            continue;
+        send_message(&clients[i]->addr, message);
+    }
+    printf("broad: %s\n", message);
+}
+
+int receive_message(sockaddr_t *from, char *message) {
+    socklen_t fromlen = sizeof(struct sockaddr_storage);
+    int status = recvfrom(sockfd, message, MAXMSG, 0, (struct sockaddr*) from, &fromlen);
+    if (status < 0) {
+        perror("Error: Failed to receive message\n");
+        printf("%d", WSAGetLastError());
+        exit(EXIT_FAILURE);
+    }
+    message[status] = '\0';
+    return status;
+}
+
 void *handle_client(void* arg) {
     client_t *client = (client_t*)arg;
-    char msgbuffer[MSGBUFFER];
+    char msgbuffer[MAXMSG];
     char client_name_header[NAMELEN + 2];
     snprintf(client_name_header, sizeof(client_name_header), "%s:", client->name);
 
     while (1) {
         receive_message(NULL, msgbuffer);
-        char message[MSGBUFFER + NAMELEN + 2];
+        char message[MAXMSG + NAMELEN + 2];
         snprintf(message, sizeof(message), "%s%s", client_name_header, msgbuffer);
         for (int i = 0; i < MAXCLIENTS; i++) {
             if (clients[i] == NULL || i == client->id)
@@ -67,20 +95,8 @@ void *handle_client(void* arg) {
     return NULL;
 }
 
-
-// send a message to all clients whose id is not equal to except_id
-// pass -1 for except_id to send to everyone
-void broadcast_except(char *message, int except_id) {
-    for (int i = 0; i < MAXCLIENTS - 1; i++) {
-        if (clients[i] == NULL || i == except_id)
-        continue;
-        send_message(&clients[i]->addr, message);
-    }
-    printf("broad: %s\n", message);
-}
-
 void show_all_participants(sockaddr_t *clientaddr) {
-    char names_message[MSGBUFFER] = "Server: All chat participants: ";
+    char names_message[MAXMSG] = "Server: All chat participants: ";
     for (int i = 0; i < MAXCLIENTS; i++) {
         if (clients[i] == NULL)
         continue;
@@ -118,7 +134,7 @@ void add_to_chatroom(sockaddr_t *clientaddr, char *name) {
     }
     
     // reply with client's id: "i<client_id>"
-    char client_id_response[3];
+    char client_id_response[MAXMSG];
     sprintf(client_id_response, "%c%c", CMD_ID, client->id + '0');
     send_message(clientaddr, client_id_response);
     
@@ -137,10 +153,10 @@ void remove_client(client_t* client) {
 }
 
 void *server_send(void* arg) {
-    char input_buffer[MSGBUFFER - 9];
-    char broadcasted_message[MSGBUFFER];
+    char input_buffer[MAXMSG - 9];
+    char broadcasted_message[MAXMSG];
     while (1) {
-        fgets(input_buffer, MSGBUFFER - 9, stdin);
+        fgets(input_buffer, MAXMSG - 9, stdin);
         if (input_buffer[0] == CMD_PREFIX) {
             if (input_buffer[1] == CMD_ALL) {
                 for (int i = 0; i < MAXCLIENTS; i++) {
@@ -165,8 +181,8 @@ client_t *verify_client(char *message) {
     return clients[message[0] - '0']; // still can be null
 }
 
-void run_server(sockaddr_t servaddr) {
-    char message[MSGBUFFER];
+void run_server() {
+    char message[MAXMSG];
     sockaddr_t clientaddr;
     pthread_t broadcast_thread;
     pthread_create(&broadcast_thread, NULL, server_send, NULL);
@@ -192,7 +208,7 @@ void run_server(sockaddr_t servaddr) {
                     remove_client(client);
                 continue;
             }
-            char broadcasted_msg[NAMELEN + MSGBUFFER + 2];
+            char broadcasted_msg[NAMELEN + MAXMSG + 2];
             sprintf(broadcasted_msg, "%s: %s\n", client->name, message + 1);
             broadcast_except(broadcasted_msg, client->id);
         }

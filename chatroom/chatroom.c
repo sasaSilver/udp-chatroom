@@ -2,7 +2,6 @@
 
 #ifdef _WIN32
 #include <winsock2.h>
-typedef int socklen_t; // Define socklen_t as int for Windows
 #else
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -38,22 +37,11 @@ sockaddr_t setup_server(char* ip, int port) {
     return servaddr;
 }
 
-int send_message(sockaddr_t *toaddr, char* message) {
-    int nreceived = sendto(sockfd, message, strlen(message), 0, (struct sockaddr*) toaddr, sizeof(sockaddr_t));
-    if (nreceived < 0) {
+int send_message(sockaddr_t *to, char* message) {
+    int status = sendto(sockfd, message, strlen(message), 0, (struct sockaddr*) to, sizeof(sockaddr_t));
+    if (status < 0) {
         perror("Error: Failed to send message\n");
         exit(EXIT_FAILURE);
     }
-    return nreceived;
-}
-
-int receive_message(sockaddr_t *from, char *message) {
-    static socklen_t server_struct_len = sizeof(struct sockaddr_in);
-    int nreceived = recvfrom(sockfd, message, MSGBUFFER, 0, (struct sockaddr*) from, &server_struct_len);
-    if (nreceived < 0) {
-        perror("Error: Failed to receive message\n");
-        exit(EXIT_FAILURE);
-    }
-    message[nreceived] = '\0';
-    return nreceived;
+    return status;
 }

@@ -2,10 +2,10 @@ CC = gcc
 CFLAGS = -Wall
 
 ifeq ($(OS),Windows_NT)
-    LIBS = -lws2_32
+    LIBS = -lws2_32 -lpthread
 	CLEAN = del client.exe server.exe
 else
-    LIBS = 
+    LIBS = -lpthread
 	CLEAN = rm -f client server
 endif
 

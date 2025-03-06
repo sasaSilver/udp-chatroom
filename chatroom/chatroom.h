@@ -7,16 +7,22 @@
 #include <signal.h>
 
 #ifdef _WIN32
+
 #include <winsock2.h>
 #include <windows.h>
 #include <Pthread.h>
+
 typedef int socklen_t;
+#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
+
 #else
+
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <pthread.h> // Include pthread.h for Unix/Linux
+#include <pthread.h>
+
 #endif
 
 #define CMD_REG 'r'
@@ -26,14 +32,12 @@ typedef int socklen_t;
 #define CMD_ALL 'a'
 
 #define NAMELEN 50
-#define MSGBUFFER 256
-
+#define MAXMSG 256
 typedef struct sockaddr_in sockaddr_t;
 
 void cleanup_socket(int sockfd);
 int setup_socket(int domain, int type, int protocol);
-struct sockaddr_in setup_server(char* ip, int port);
+sockaddr_t setup_server(char* ip, int port);
 int send_message(sockaddr_t *toaddr, char* message);
-int receive_message(sockaddr_t *from, char *message);
 
 #endif
