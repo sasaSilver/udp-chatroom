@@ -1,12 +1,12 @@
 # UDP Chatroom
 
 ## Description
-A simple command line chat application that allows multiple clients to chat with each other over a network using the User Datagram Protocol (UDP). The app consists of a server that manages client connections and broadcasts their messages.
+A simple command line chat application that uses the User Datagram Protocol (UDP). The app consists of clients that send messages and a server that receives and processes these messages.
 
 ## Functionality
 - **Multi-client Support**: Connect up to 10 clients simultaneously.
 - **Real-time Messaging**: Send and receive messages in real-time.
-- **User Registration**: Clients can register with a unique name and receive an ID.
+- **User Registration**: Clients can register with a name and receive a unique ID.
 - **Command Support**: Clients can execute commands to leave the chatroom or view all participants.
 - **Cross-Platform**: Compatible with both Windows and Unix-like systems.
 
@@ -29,7 +29,7 @@ A simple command line chat application that allows multiple clients to chat with
    ```bash
    cd chatroom
    make
-   ./client <server_ip> <port>
+   ./client <serverrt>
    ./server <port>
    ```
 
@@ -38,3 +38,6 @@ A simple command line chat application that allows multiple clients to chat with
 4. As client, type `!h` for help.
 
 5. Optionally, send messages as server.
+
+## Testing
+To test project, run `cd chatroom && make check`

@@ -1,4 +1,5 @@
-# Compiled source
-client.exe
-server.exe
+/chatroom/client.exe
+/chatroom/server.exe
+
 .vscode
+/chatroom/test
