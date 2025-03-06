@@ -32,21 +32,14 @@ int setup_socket(int domain, int type, int protocol) {
 sockaddr_t setup_server(char* ip, int port) {
     sockaddr_t servaddr;
     memset(&servaddr, 0, sizeof(servaddr));
-    if (ip == NULL) {
-        servaddr.sin_addr.s_addr = INADDR_ANY;
-    }
-    servaddr.sin_addr.s_addr = inet_addr(ip);
-    if (ip != NULL && servaddr.sin_addr.s_addr == INADDR_NONE) {
-        perror("Error: Invalid server address\n");
-        exit(EXIT_FAILURE);
-    }
+    servaddr.sin_addr.s_addr = ip ? inet_addr(ip) : INADDR_ANY;
     servaddr.sin_port = htons(port);
     servaddr.sin_family = AF_INET;
     return servaddr;
 }
 
 int send_message(sockaddr_t *toaddr, char* message) {
-    int nreceived = sendto(sockfd, message, strlen(message), 0, (struct sockaddr*) toaddr, sizeof(toaddr));
+    int nreceived = sendto(sockfd, message, strlen(message), 0, (struct sockaddr*) toaddr, sizeof(sockaddr_t));
     if (nreceived < 0) {
         perror("Error: Failed to send message\n");
         exit(EXIT_FAILURE);
