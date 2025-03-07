@@ -59,7 +59,7 @@ void throw(const char *format, ...) {
 }
 
 void help() {
-    printf("[HELP]:\n");
+    printf("[HELP]\n");
     printf("!r - Register in the chatroom.\n");
     printf("!q - Leave the chatroom.\n");
     printf("!i - Show your user ID.\n");

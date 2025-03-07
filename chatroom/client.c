@@ -17,18 +17,17 @@ int main(int argc, char* argv[]) {
 #ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
-        throw("[ERROR] WSAStartup failed: %d\n", WSAGetLastError());
+        throw("[ERROR] WSAStartup failed: %d", WSAGetLastError());
 #endif
     if (argc < 2) 
-        throw("[ERROR] Server IP and port in program arguments are needed\n");
+        throw("[ERROR] Server IP and port in program arguments are needed");
     else if (argc > 3) 
-        throw("[ERROR] Too many arguments\n");
+        throw("[ERROR] Too many arguments");
     
     sockfd = setup_socket(AF_INET, SOCK_DGRAM, 0);
     servaddr = setup_server(argv[1], atoi(argv[2])); //ip, port
     
     signal(SIGINT, &on_app_close);
-    signal(SIGBREAK, &on_app_close);
     signal(SIGTERM, &on_app_close);
     
     run_client();
@@ -43,7 +42,7 @@ void send_logged_in(char *message) {
 int receive_message(char *message) {
     int status = recv(sockfd, message, MAXMSG, 0);
     if (status < 0)
-        throw("[ERROR]: Failed to receive message\n");
+        throw("[ERROR] Failed to receive message");
     message[status] = '\0';
     return status;
 }
@@ -51,8 +50,10 @@ int receive_message(char *message) {
 void *receive_routine(void* arg) {
     char msgbuffer[MAXMSG];
     while (1) {
+        if (!client.logged_in)
+            continue;
         receive_message(msgbuffer);
-        printf("%s", msgbuffer);
+        printf("%s\n", msgbuffer);
     }
 }
 
@@ -68,12 +69,11 @@ char register_client() {
     send_message(&servaddr, register_request);
     
     char client_id_reply[MAXMSG];
-    int nreceived = receive_message(client_id_reply);
-    client_id_reply[nreceived] = '\0';
+    receive_message(client_id_reply);
         
     int client_id = atoi(client_id_reply + 1);
     if (client_id == -1)
-        throw("[ERROR]: Chatroom is full. Unable to connect\n");
+        throw("[ERROR] Chatroom is full. Unable to connect");
     return client_id + '0';
 }
 
@@ -101,14 +101,12 @@ void run_client() {
             if (buffer[1] == CMD_REG) {
                 client.id = register_client();
                 client.logged_in = 1;
-                // start receiving messages after registering
                 pthread_create(&receive_thread, NULL, receive_routine, NULL);
             }
             else if (buffer[1] == CMD_LEAVE) {
                 leave_chatroom(client.id);
-                client.logged_in = 0;
-                // stop receiving messages after leaving
                 pthread_cancel(receive_thread);
+                client.logged_in = 0;
             }
             else if (buffer[1] == CMD_ALL)
                 get_all_participants(client.id);

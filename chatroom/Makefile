@@ -9,7 +9,7 @@ else
 	CLEAN = rm -f client server client.exe server.exe ./test/test ./test/test.exe
 endif
 
-all: client server check
+all: client server
 
 client: client.c chatroom.c
 	$(CC) $(CFLAGS) -o client client.c chatroom.c $(LIBS)

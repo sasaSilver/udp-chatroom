@@ -19,12 +19,12 @@ int main(int argc, char* argv[]) {
 #ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
-        throw("WSAStartup failed: %d\n", WSAGetLastError());
+        throw("WSAStartup failed: %d", WSAGetLastError());
 #endif
     if (argc < 2)
-        throw("[ERROR]: A port number in program arguments is needed\n");
+        throw("[ERROR] A port number in program arguments is needed\n");
     else if (argc > 2) 
-        throw("[ERROR]: Too many arguments\n");
+        throw("[ERROR] Too many arguments");
     sockfd = setup_socket(AF_INET, SOCK_DGRAM, 0);
 #ifdef _WIN32
     // windows fix for recvfrom
@@ -38,7 +38,6 @@ int main(int argc, char* argv[]) {
     printf("[INFO] Server listening on port %d...\n", atoi(argv[1]));
     
     signal(SIGINT, &on_app_close);
-    signal(SIGBREAK, &on_app_close);
     signal(SIGTERM, &on_app_close);
     
     run_server();
@@ -46,7 +45,7 @@ int main(int argc, char* argv[]) {
 
 void bind_socket(sockaddr_t servaddr) {
     if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
-        throw("[ERROR]: Failed to bind socket\n");
+        throw("[ERROR] Failed to bind socket");
 }
 
 // send a message to all clients whose id is not equal to except_id
@@ -57,14 +56,14 @@ void broadcast_except(char *message, int except_id) {
             continue;
         send_message(&clients[i]->addr, message);
     }
-    printf("[BROADCAST]: %s\n", message);
+    printf("[BROADCAST] %s\n", message);
 }
 
 int receive_message(sockaddr_t *from, char *message) {
     socklen_t fromlen = sizeof(struct sockaddr_storage);
     int status = recvfrom(sockfd, message, MAXMSG, 0, (struct sockaddr*) from, &fromlen);
     if (status < 0)
-        throw("[ERROR]: Failed to receive message\n");
+        throw("[ERROR] Failed to receive message");
     message[status] = '\0';
     return status;
 }
@@ -89,14 +88,13 @@ void *handle_client(void* arg) {
 }
 
 void show_all_participants(sockaddr_t *clientaddr) {
-    char names_message[MAXMSG] = "[SERVER]: All chat participants: ";
+    char names_message[MAXMSG] = "[SERVER] All chat participants: ";
     for (int i = 0; i < MAXCLIENTS; i++) {
         if (clients[i] == NULL)
         continue;
         strcat(names_message, clients[i]->name);
         strcat(names_message, " ");
     }
-    strcat(names_message, "\n");
     send_message(clientaddr, names_message);
 }
 
@@ -122,7 +120,7 @@ client_t *create_client(sockaddr_t *clientaddr, char *name) {
 void add_to_chatroom(sockaddr_t *clientaddr, char *name) {
     client_t *client = create_client(clientaddr, name);
     if (client == NULL) {
-        send_message(clientaddr, "[SERVER]: The chat room is full!\n");
+        send_message(clientaddr, "[SERVER] The chat room is full!");
         printf("[INFO] Client %s tried to join the chat room, but it's full\n", name);
         return;
     }
@@ -133,7 +131,7 @@ void add_to_chatroom(sockaddr_t *clientaddr, char *name) {
     
     // notify that client joined
     char welcome_msg[NAMELEN + 36];
-    sprintf(welcome_msg, "[SERVER]: %s has joined the chat room\n", client->name);
+    sprintf(welcome_msg, "[SERVER] %s has joined the chat room", client->name);
     broadcast_except(welcome_msg, -1);
     
     printf("[INFO] %s joined\n", client->name);
@@ -141,7 +139,7 @@ void add_to_chatroom(sockaddr_t *clientaddr, char *name) {
 
 void remove_client(client_t* client) {
     char leave_msg[NAMELEN + 35];
-    sprintf(leave_msg, "[SERVER]: %s has left the chat room\n", client->name);
+    sprintf(leave_msg, "[SERVER] %s has left the chat room", client->name);
     clients[client->id] = NULL;
     free(client);
     broadcast_except(leave_msg, -1);
@@ -165,7 +163,7 @@ void *server_send(void* arg) {
             continue;
         }
         // do not add '\n' at end of format as a '\n' remains after fgets
-        sprintf(broadcasted_message, "[SERVER]: %s", input_buffer);
+        sprintf(broadcasted_message, "[SERVER] %s", input_buffer);
         broadcast_except(broadcasted_message, -1);
     }
 }
@@ -185,7 +183,7 @@ void run_server() {
     while (1) {
         int nreceived = receive_message(&clientaddr, message);
         message[nreceived] = '\0';
-        printf("[RECEIVED]: %s\n", message);
+        printf("[RECEIVED] %s\n", message);
         // non-registered clients send messages without their id
         if (message[0] == CMD_REG) {
             add_to_chatroom(&clientaddr, message);
