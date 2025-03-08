@@ -25,23 +25,22 @@ typedef int socklen_t;
 
 #endif
 
-#define CMD_REG 'r'
 #define CMD_PREFIX '!'
+#define CMD_REG 'r'
 #define CMD_LEAVE 'q'
 #define CMD_ID 'i'
 #define CMD_ALL 'a'
 #define CMD_HELP 'h'
 
 #define NAMELEN 50
-#define MAXMSG 256
+#define MAXSEND 256
 typedef struct sockaddr_in sockaddr_t;
 
-void cleanup_socket(int sockfd);
+void cleanup_socket();
 int setup_socket(int domain, int type, int protocol);
 sockaddr_t setup_server(char* ip, int port);
 void send_message(sockaddr_t *to, char* message);
 void throw(const char *format, ...);
-void help();
 void on_app_close(int signum);
 
 #endif

@@ -12,7 +12,9 @@
 
 #include "chatroom.h"
 
-void cleanup_socket(int sockfd) {
+extern int sockfd;
+
+void cleanup_socket() {
 #ifdef _WIN32
     closesocket(sockfd);
 #else
@@ -20,7 +22,6 @@ void cleanup_socket(int sockfd) {
 #endif
 }
 
-extern int sockfd;
 
 int setup_socket(int domain, int type, int protocol) {
     sockfd = socket(domain, type, protocol);
@@ -56,15 +57,4 @@ void throw(const char *format, ...) {
     
     va_end(args);
     exit(EXIT_FAILURE);
-}
-
-void help() {
-    printf("[HELP]\n");
-    printf("!r - Register in the chatroom.\n");
-    printf("!q - Leave the chatroom.\n");
-    printf("!i - Show your user ID.\n");
-    printf("!a - Show all users in the chatroom\n");
-    printf("     Also available as a server command that lists");
-    printf("     all connected users and their ids\n");
-    printf("!h - Display this message.\n");
 }

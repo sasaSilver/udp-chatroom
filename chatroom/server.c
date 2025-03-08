@@ -1,6 +1,7 @@
 #include "chatroom.h"
 
 #define MAXCLIENTS 10
+#define MAXMSG MAXSEND - 10
 
 typedef struct {
     sockaddr_t addr;
@@ -51,17 +52,17 @@ void bind_socket(sockaddr_t servaddr) {
 // send a message to all clients whose id is not equal to except_id
 // pass -1 for except_id to send to everyone
 void broadcast_except(char *message, int except_id) {
-    for (int i = 0; i < MAXCLIENTS - 1; i++) {
+    for (int i = 0; i < MAXCLIENTS; i++) {
         if (clients[i] == NULL || i == except_id)
             continue;
         send_message(&clients[i]->addr, message);
     }
-    printf("[BROADCAST] %s\n", message);
+    printf("[BROADCAST] %s", message);
 }
 
 int receive_message(sockaddr_t *from, char *message) {
     socklen_t fromlen = sizeof(struct sockaddr_storage);
-    int status = recvfrom(sockfd, message, MAXMSG, 0, (struct sockaddr*) from, &fromlen);
+    int status = recvfrom(sockfd, message, MAXSEND, 0, (struct sockaddr*) from, &fromlen);
     if (status < 0)
         throw("[ERROR] Failed to receive message");
     message[status] = '\0';
@@ -70,13 +71,13 @@ int receive_message(sockaddr_t *from, char *message) {
 
 void *handle_client(void* arg) {
     client_t *client = (client_t*)arg;
-    char msgbuffer[MAXMSG];
+    char msgbuffer[MAXSEND];
     char client_name_header[NAMELEN + 2];
     snprintf(client_name_header, sizeof(client_name_header), "%s:", client->name);
 
     while (1) {
         receive_message(NULL, msgbuffer);
-        char message[MAXMSG + NAMELEN + 2];
+        char message[MAXSEND + NAMELEN + 2];
         snprintf(message, sizeof(message), "%s%s", client_name_header, msgbuffer);
         for (int i = 0; i < MAXCLIENTS; i++) {
             if (clients[i] == NULL || i == client->id)
@@ -88,7 +89,7 @@ void *handle_client(void* arg) {
 }
 
 void show_all_participants(sockaddr_t *clientaddr) {
-    char names_message[MAXMSG] = "[SERVER] All chat participants: ";
+    char names_message[MAXSEND] = "[SERVER] All chat participants: ";
     for (int i = 0; i < MAXCLIENTS; i++) {
         if (clients[i] == NULL)
         continue;
@@ -117,20 +118,21 @@ client_t *create_client(sockaddr_t *clientaddr, char *name) {
     return client;
 }
 
-void add_to_chatroom(sockaddr_t *clientaddr, char *name) {
-    client_t *client = create_client(clientaddr, name);
+void add_to_chatroom(sockaddr_t *clientaddr, char *reqest) {
+    reqest += 3; // skip previous client id, cmd prefix, and cmd register chars.
+    client_t *client = create_client(clientaddr, reqest);
     if (client == NULL) {
         send_message(clientaddr, "[SERVER] The chat room is full!");
-        printf("[INFO] Client %s tried to join the chat room, but it's full\n", name);
+        printf("[INFO] Client %s tried to join the chat room, but it's full\n", reqest);
         return;
     }
     // reply with client's id: "i<client_id>"
-    char client_id_response[MAXMSG];
+    char client_id_response[MAXSEND];
     sprintf(client_id_response, "%c%c", CMD_ID, client->id + '0');
     send_message(clientaddr, client_id_response);
     
     // notify that client joined
-    char welcome_msg[NAMELEN + 36];
+    char welcome_msg[MAXSEND];
     sprintf(welcome_msg, "[SERVER] %s has joined the chat room", client->name);
     broadcast_except(welcome_msg, -1);
     
@@ -138,28 +140,33 @@ void add_to_chatroom(sockaddr_t *clientaddr, char *name) {
 }
 
 void remove_client(client_t* client) {
-    char leave_msg[NAMELEN + 35];
+    char leave_msg[MAXSEND];
     sprintf(leave_msg, "[SERVER] %s has left the chat room", client->name);
     clients[client->id] = NULL;
     free(client);
     broadcast_except(leave_msg, -1);
 }
 
+void print_ids_participants() {
+    for (int i = 0; i < MAXCLIENTS; i++) {
+        if (clients[i] == NULL) continue;
+        printf("%d %s\n", clients[i]->id, clients[i]->name);
+    }
+}
+
 void *server_send(void* arg) {
-    char input_buffer[MAXMSG - 10];
-    char broadcasted_message[MAXMSG];
+    char input_buffer[MAXMSG];
+    char broadcasted_message[MAXSEND];
     while (1) {
-        fgets(input_buffer, MAXMSG - 10, stdin);
+        fgets(input_buffer, MAXSEND - 10, stdin);
         if (input_buffer[0] == CMD_PREFIX) {
-            if (input_buffer[1] == CMD_ALL) {
-                for (int i = 0; i < MAXCLIENTS; i++) {
-                    if (clients[i] == NULL) continue;
-                    printf("%d %s\n", clients[i]->id, clients[i]->name);
-                }
-            }
-            else if (1) {
+            if (input_buffer[1] == CMD_ALL)
+                print_ids_participants();
+            else if (0) {
                 // other server commands
             }
+            else
+                printf("[WARNING] Unknown command: %s\n", input_buffer);
             continue;
         }
         // do not add '\n' at end of format as a '\n' remains after fgets
@@ -168,43 +175,69 @@ void *server_send(void* arg) {
     }
 }
 
-client_t *verify_client(char *message) {
-    if (message[0] < '0' || message[0] > '9')
+client_t *verify_client(char client_id) {
+    if (client_id < '0' || client_id > '9')
         return NULL;                  // allowed ids are 0-9
-    return clients[message[0] - '0']; // still can be null
+    return clients[client_id - '0'];  // still can be null
+}
+
+void unknown_client_command(sockaddr_t *clientaddr, char *message) {
+    char unknown_cmd_message[MAXSEND];
+    sprintf(unknown_cmd_message, "[SERVER] Unknown command: %s", message);
+    send_message(clientaddr, unknown_cmd_message);
+}
+
+void send_help(sockaddr_t *clientaddr) {
+    static char *help_message = 
+        "[HELP]\n"
+        "!r - Register in the chatroom.\n"
+        "!q - Leave the chatroom.\n"
+        "!i - Show your user ID.\n"
+        "!a - Show all users in the chatroom\n"
+        "     Also available as a server command that lists"
+        "     all connected users and their ids\n"
+        "!h - Display this message.\n"
+    ;
+    send_message(clientaddr, help_message);
 }
 
 void run_server() {
     pthread_create(&broadcast_thread, NULL, server_send, NULL); // thread to send server messages
     
-    char message[MAXMSG];
+    char message[MAXSEND];
     sockaddr_t clientaddr;
-    client_t *curr_client;
+    client_t *client;
     while (1) {
         int nreceived = receive_message(&clientaddr, message);
         message[nreceived] = '\0';
         printf("[RECEIVED] %s\n", message);
-        // non-registered clients send messages without their id
-        if (message[0] == CMD_REG) {
-            add_to_chatroom(&clientaddr, message);
+        
+        // commands that can be executed by non-registered clients
+        if (message[1] == CMD_PREFIX) {
+            if (message[2] == CMD_REG)
+                add_to_chatroom(&clientaddr, message);
+            else if (message[2] == CMD_HELP)
+                send_help(&clientaddr);
         }
         // verify a client to send their messages or handle commands
-        else if ((curr_client = verify_client(message))) {
+        else if ((client = verify_client(message[0]))) {
             if (message[1] == CMD_PREFIX) {
                 if (message[2] == CMD_ALL)
-                    show_all_participants(&clientaddr);
+                    show_all_participants(&client->addr);
                 else if (message[2] == CMD_LEAVE)
-                    remove_client(curr_client);
+                    remove_client(client);
+                else
+                    unknown_client_command(&client->addr, message + 1);
                 continue;
             }
-            char broadcasted_msg[NAMELEN + MAXMSG + 2];
-            sprintf(broadcasted_msg, "%s: %s\n", curr_client->name, message + 1);
-            broadcast_except(broadcasted_msg, curr_client->id);
+            char broadcasted_msg[NAMELEN + MAXSEND + 2];
+            sprintf(broadcasted_msg, "%s: %s", client->name, message + 1);
+            broadcast_except(broadcasted_msg, client->id);
         }
     }
 }
 
 void on_app_close(int signum) {
     pthread_cancel(broadcast_thread);
-    cleanup_socket(sockfd);
+    cleanup_socket();
 }
