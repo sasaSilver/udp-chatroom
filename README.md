@@ -38,6 +38,3 @@ A simple command line chat application that uses the User Datagram Protocol (UDP
 4. As client, type `!h` for help.
 
 5. Optionally, send messages as server.
-
-## Testing
-To test project, run `cd chatroom && make check`
