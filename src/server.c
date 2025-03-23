@@ -13,8 +13,11 @@ int sockfd;
 client_t *clients[MAXCLIENTS] = {NULL};
 pthread_t broadcast_thread;
 
+// Function declarations
 void bind_socket(sockaddr_t servaddr);
 void run_server();
+void *handle_client(void *arg);
+client_t *find_client_by_sock(int sock);
 
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
@@ -43,7 +46,7 @@ int main(int argc, char* argv[]) {
 
 void bind_socket(sockaddr_t servaddr) {
     int opt = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) < 0)
         cr_error("Failed to set socket options");
     if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
         cr_error("Failed to bind socket");
@@ -202,9 +205,7 @@ void run_server() {
     // thread to send server messages
     pthread_create(&broadcast_thread, NULL, server_send_routine, NULL);
     
-    char message[MAXSEND];
     sockaddr_t clientaddr;
-    client_t *client;
     int client_sock;
     socklen_t client_len = sizeof(clientaddr);
     
@@ -223,15 +224,9 @@ void run_server() {
     }
 }
 
-typedef struct {
-    int sock;
-    sockaddr_t addr;
-} client_thread_args_t;
-
 void *handle_client(void *arg) {
     client_thread_args_t *args = (client_thread_args_t*)arg;
     int client_sock = args->sock;
-    sockaddr_t clientaddr = args->addr;
     free(arg);
     
     char message[MAXSEND];
@@ -241,7 +236,7 @@ void *handle_client(void *arg) {
         int status = recv(client_sock, message, MAXSEND, 0);
         if (status <= 0) {
             // Client disconnected
-            if (client = find_client_by_sock(client_sock)) {
+            if ((client = find_client_by_sock(client_sock))) {
                 remove_client(client);
             }
             break;
@@ -275,7 +270,11 @@ void *handle_client(void *arg) {
         }
     }
     
+#ifdef _WIN32
+    closesocket(client_sock);
+#else
     close(client_sock);
+#endif
     return NULL;
 }
 

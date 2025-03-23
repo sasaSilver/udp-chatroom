@@ -142,9 +142,3 @@ void cr_on_app_close(int signum) {
 
     cr_cleanup_socket();
 }
-
-void cr_send(sockaddr_t *to, char* message) {
-    int status = send(sockfd, message, strlen(message), 0);
-    if (status < 0)
-        cr_error("Failed to send message\n");
-}

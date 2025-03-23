@@ -40,6 +40,12 @@ typedef int socklen_t;
 #define MAXSEND 256
 typedef struct sockaddr_in sockaddr_t;
 
+// Structure to pass arguments to client thread
+typedef struct {
+    int sock;
+    sockaddr_t addr;
+} client_thread_args_t;
+
 void cr_cleanup_socket();
 int cr_setup_socket(int domain, int type, int protocol);
 sockaddr_t cr_setup_server(char* ip, int port);

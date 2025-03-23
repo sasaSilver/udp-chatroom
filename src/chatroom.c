@@ -38,9 +38,15 @@ sockaddr_t cr_setup_server(char* ip, int port) {
     return servaddr;
 }
 
-// TODO change to use vargs
 void cr_send(sockaddr_t *to, char* message) {
-    int status = sendto(sockfd, message, strlen(message), 0, (struct sockaddr*) to, sizeof(sockaddr_t));
+    int status;
+    if (to) {
+        // UDP mode
+        status = sendto(sockfd, message, strlen(message), 0, (struct sockaddr*) to, sizeof(sockaddr_t));
+    } else {
+        // TCP mode
+        status = send(sockfd, message, strlen(message), 0);
+    }
     if (status < 0)
         cr_error("Failed to send message\n");
 }
