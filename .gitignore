@@ -1,5 +1,6 @@
 /chatroom/client.exe
 /chatroom/server.exe
+/chatroom/client
+/chatroom/server
 
 .vscode
-/chatroom/test

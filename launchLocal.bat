@@ -1,8 +1,7 @@
 @echo off
 :: Builds the project and starts the server and two clients
 
-:: Change to the chatroom directory
-cd chatroom
+cd src
 
 :: Build the project
 make
